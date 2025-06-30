@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>SOCKS5 Configuration</title>
+    <!-- Include JSON Editor CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/jsoneditor@9.10.2/dist/jsoneditor.min.css" rel="stylesheet" type="text/css">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+        }
+
+        #jsoneditor {
+            width: 100%;
+            height: 400px;
+            margin-bottom: 10px;
+        }
+
+        button {
+            margin-top: 10px;
+            padding: 8px 16px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background-color: #45a049;
+        }
+
+        #error {
+            color: red;
+            margin-top: 10px;
+        }
+
+        #response {
+            margin-top: 20px;
+            padding: 10px;
+            border-radius: 4px;
+        }
+
+        .success {
+            color: green;
+            background-color: #f0fff0;
+            border: 1px solid #d6e9c6;
+        }
+
+        .error {
+            color: red;
+            background-color: #fff0f0;
+            border: 1px solid #ebccd1;
+        }
+    </style>
+</head>
+<body>
+<h1>SOCKS5 Configuration</h1>
+<form id="configForm">
+    <label for="jsoneditor">Enter JSON configuration:</label><br/>
+    <div id="jsoneditor"></div>
+    <button type="submit">Submit</button>
+    <div id="error"></div>
+</form>
+
+<div id="response"></div>
+
+<!-- Include JSON Editor Library -->
+<script src="https://cdn.jsdelivr.net/npm/jsoneditor@9.10.2/dist/jsoneditor.min.js"></script>
+<script>
+    window.onload = function () {
+        // Initialize JSON editor
+        const container = document.getElementById('jsoneditor');
+        const options = {
+            mode: 'code',
+            modes: ['code', 'tree', 'form', 'text', 'view'],
+            onError: function (err) {
+                document.getElementById('error').textContent = err.toString();
+            },
+            onModeChange: function (newMode) {
+                console.log('Mode switched to', newMode);
+            }
+        };
+
+        // Parse the initial JSON
+        let initialJson;
+        try {
+            initialJson = {value};
+            //initialJson = JSON.parse(`{value}`);
+        } catch (e) {
+            initialJson = {};
+            document.getElementById('error').textContent = 'Initial JSON is invalid: ' + e.message;
+        }
+
+        const editor = new JSONEditor(container, options, initialJson);
+
+        // Submit handler
+        document.getElementById('configForm').addEventListener('submit', function (e) {
+            e.preventDefault();
+
+            // Get JSON from editor
+            let json;
+            try {
+                json = editor.get();
+            } catch (e) {
+                document.getElementById('error').textContent = 'Invalid JSON: ' + e.message;
+                return;
+            }
+
+            // Clear previous errors
+            document.getElementById('error').textContent = '';
+            const responseDiv = document.getElementById('response');
+
+            fetch('/config', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(json)
+            })
+                .then(response => {
+                    if (!response.ok) throw new Error(`HTTP error! Status: ${response.status}`);
+                    return response.json();
+                })
+                .then(data => {
+                    responseDiv.className = 'success';
+                    responseDiv.innerHTML = `<p>Status: ${data.status}</p><p>Message: ${data.message}</p>`;
+                })
+                .catch(error => {
+                    responseDiv.className = 'error';
+                    responseDiv.innerHTML = `<p>Error: ${error.message}</p>`;
+                });
+        });
+    };
+</script>
+</body>
+</html>

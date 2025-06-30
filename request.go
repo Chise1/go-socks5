@@ -1,13 +1,14 @@
 package socks5
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"io"
+	"log"
 	"net"
 	"strconv"
 	"strings"
-
-	"golang.org/x/net/context"
 )
 
 const (
@@ -117,10 +118,16 @@ func NewRequest(bufConn io.Reader) (*Request, error) {
 
 // handleRequest is used for request processing after authentication
 func (s *Server) handleRequest(req *Request, conn conn) error {
+	err := to(req, conn)
+	if errors.Is(err, notParse) {
+		return s.requestBySelf(req, conn)
+	}
+	return err
+}
+func (s *Server) requestBySelf(req *Request, conn conn) error {
 	ctx := context.Background()
+	dest := req.DestAddr //这里的fqdn是域名.逻辑是根据域名解析得到ip.
 
-	// Resolve the address if we have a FQDN
-	dest := req.DestAddr
 	if dest.FQDN != "" {
 		ctx_, addr, err := s.config.Resolver.Resolve(ctx, dest.FQDN)
 		if err != nil {
@@ -186,7 +193,7 @@ func (s *Server) handleConnect(ctx context.Context, conn conn, req *Request) err
 		if err := sendReply(conn, resp, nil); err != nil {
 			return fmt.Errorf("Failed to send reply: %v", err)
 		}
-		return fmt.Errorf("Connect to %v failed: %v", req.DestAddr, err)
+		return fmt.Errorf("self connect to %v failed: %v", req.DestAddr, err)
 	}
 	defer target.Close()
 
@@ -199,8 +206,8 @@ func (s *Server) handleConnect(ctx context.Context, conn conn, req *Request) err
 
 	// Start proxying
 	errCh := make(chan error, 2)
-	go proxy(target, req.bufConn, errCh)
-	go proxy(conn, target, errCh)
+	go proxyData(target, req.bufConn, errCh)
+	go proxyData(conn, target, errCh)
 
 	// Wait
 	for i := 0; i < 2; i++ {
@@ -322,12 +329,12 @@ func sendReply(w io.Writer, resp uint8, addr *AddrSpec) error {
 
 	case addr.IP.To4() != nil:
 		addrType = ipv4Address
-		addrBody = []byte(addr.IP.To4())
+		addrBody = addr.IP.To4()
 		addrPort = uint16(addr.Port)
 
 	case addr.IP.To16() != nil:
 		addrType = ipv6Address
-		addrBody = []byte(addr.IP.To16())
+		addrBody = addr.IP.To16()
 		addrPort = uint16(addr.Port)
 
 	default:
@@ -353,12 +360,40 @@ type closeWriter interface {
 	CloseWrite() error
 }
 
-// proxy is used to suffle data from src to destination, and sends errors
-// down a dedicated channel
-func proxy(dst io.Writer, src io.Reader, errCh chan error) {
+func proxyData(dst io.Writer, src io.Reader, errCh chan error) {
 	_, err := io.Copy(dst, src)
 	if tcpConn, ok := dst.(closeWriter); ok {
 		tcpConn.CloseWrite()
 	}
 	errCh <- err
+}
+
+// proxyData is used to suffle data from src to destination, and sends errors
+// down a dedicated channel
+func proxyData2(dst io.Writer, src io.Reader, errCh chan error) {
+	// 创建一个缓冲区来读取数据
+	buf := make([]byte, 4096)
+	for {
+		n, err := src.Read(buf)
+		if n > 0 {
+			// 打印读取到的数据
+			log.Printf("[DEBUG] Read %d bytes: %s", n, string(buf[:n]))
+
+			// 将数据写入目标连接
+			_, writeErr := dst.Write(buf[:n])
+			if writeErr != nil {
+				errCh <- writeErr
+				return
+			}
+		}
+
+		if err != nil {
+			if err == io.EOF {
+				errCh <- nil
+			} else {
+				errCh <- err
+			}
+			return
+		}
+	}
 }

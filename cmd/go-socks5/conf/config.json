@@ -1,0 +1,1 @@
+{"addr":"0.0.0.0:8888","socks":[{"addr":"172.16.100.2:1080","network":"tcp","include":[{"type":"regexp","value":"^192\\.168\\.0\\."}],"exclude":[{"type":"cidr","value":"172.0.0.0/8"}]},{"addr":"172.16.100.3:20170","network":"tcp","include":[{"type":"regexp","value":"google.com"},{"type":"regexp","value":"docker.io"}],"exclude":[{"type":"cidr","value":"172.0.0.0/8"}]}]}
