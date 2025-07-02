@@ -9,6 +9,7 @@ GITBRANCH = $(shell git branch | sed -n -e 's/^\* \(.*\)/\1/p')
 BUILDTIME = $(shell date +'%Y-%m-%d_%T')
 LDFLAGS = -ldflags "-w -s"
 platform ?= amd64
+goos ?=linux
 gotool:
 	@go mod tidy
 	@go fmt ./...
@@ -26,7 +27,7 @@ clean:
 	@rm -rf ${CMD}.tar.xz
 
 $(CMD):
-	CGO_ENABLED=0 GOOS=linux GOARCH=$(platform)  go build ${LDFLAGS} -o build/$@/$@ ./cmd/$@
+	CGO_ENABLED=0 GOOS=${goos} GOARCH=$(platform)  go build ${LDFLAGS} -o build/$@/$@ ./cmd/$@
 
 test: gotool
 	go test -coverpkg=./... -coverprofile=cover.out -timeout 120s ./...

@@ -6,7 +6,6 @@ import (
 	"golang.org/x/net/proxy"
 	"net"
 	"regexp"
-	"strconv"
 	"strings"
 )
 
@@ -20,7 +19,7 @@ func to(req *Request, conn conn) error {
 	for _, d := range dialers {
 		var flag bool
 		for _, f := range d.Include {
-			if f(req.DestAddr.FQDN) {
+			if f(req.DestAddr.String()) {
 				flag = true
 				break
 			}
@@ -29,7 +28,7 @@ func to(req *Request, conn conn) error {
 			continue
 		}
 		for _, f := range d.Exclude {
-			if f(req.DestAddr.FQDN) {
+			if f(req.DestAddr.String()) {
 				flag = false
 				break
 			}
@@ -39,7 +38,7 @@ func to(req *Request, conn conn) error {
 		}
 		dialer := d.Dialer
 		// 使用代理拨号器建立TCP连接
-		target, err := dialer.Dial("tcp", req.DestAddr.FQDN+":"+strconv.Itoa(req.DestAddr.Port))
+		target, err := dialer.Dial("tcp", req.DestAddr.String())
 		if err != nil {
 			msg := err.Error()
 			resp := hostUnreachable
@@ -51,7 +50,7 @@ func to(req *Request, conn conn) error {
 			if err := sendReply(conn, resp, nil); err != nil {
 				return fmt.Errorf("Failed to send reply: %v", err)
 			}
-			return fmt.Errorf("Connect to %v failed: %v", req.DestAddr, err)
+			return fmt.Errorf("Connect to %v failed: %v", req.DestAddr.String(), err)
 		}
 		defer target.Close()
 
@@ -101,7 +100,7 @@ func Init(socs []Socks) error {
 				Password: soc.Password,
 			}
 		}
-		dialer, err := proxy.SOCKS5(soc.Network, soc.Addr, auth, proxy.Direct)
+		dialer, err := proxy.SOCKS5("tcp", soc.Addr, auth, proxy.Direct)
 		if err != nil {
 			return errors.New("无法连接到代理" + soc.Addr + ": " + err.Error())
 		}

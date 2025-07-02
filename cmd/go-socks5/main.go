@@ -72,7 +72,6 @@ func main() {
 			w.Write(all)
 			w.WriteHeader(http.StatusOK)
 			w.Header().Set("Content-Type", "text/html")
-			// todo 页面优化,增加json格式化
 		} else {
 			http.Error(w, "Invalid request method", http.StatusMethodNotAllowed)
 		}
