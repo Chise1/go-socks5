@@ -17,13 +17,15 @@ func main() {
 	}
 	var configInfo socks5.ConfigInfo
 	open, err := os.Open("conf/config.json")
-	if err != nil {
-		panic(err)
+	if err == nil {
+		err = json.NewDecoder(open).Decode(&configInfo)
+		if err != nil {
+			panic(err)
+		}
+	} else {
+		configInfo.Addr = "0.0.0.0:8888"
 	}
-	err = json.NewDecoder(open).Decode(&configInfo)
-	if err != nil {
-		panic(err)
-	}
+
 	err = socks5.Init(configInfo.Socks)
 	if err != nil {
 		panic(err)

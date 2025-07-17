@@ -3,7 +3,7 @@ package socks5
 import (
 	"errors"
 	"fmt"
-	"golang.org/x/net/proxy"
+	"github.com/Chise1/go-socks5/net/proxy"
 	"net"
 	"regexp"
 	"strings"
